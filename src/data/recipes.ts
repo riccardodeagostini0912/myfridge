@@ -165,4 +165,31 @@ export const RECIPES: Recipe[] = [
       'Toss everything together until evenly seasoned and serve.',
     ],
   },
+  {
+    id: 'pizza',
+    title: 'Pizza',
+    summary: 'Homemade Margherita pizza with tomato sauce, melted mozzarella, and fresh basil.',
+    cookTimeMinutes: 90,
+    difficulty: "Medium",
+    servings: 2,
+    // Photo: "Margherita pizza on plate" by Shisma, CC BY 4.0
+    // https://commons.wikimedia.org/wiki/File:Margherita_pizza_on_plate.jpg (cropped)
+    image: require('../../assets/recipes/pizza.png'),
+    ingredients: [
+      { name: 'flour', quantity: '250', unit: 'g' },
+      { name: 'water', quantity: '160', unit: 'ml' },
+      { name: 'dry yeast', quantity: '1', unit: 'tsp' },
+      { name: 'salt', quantity: '1', unit: 'tsp' },
+      { name: 'olive oil', quantity: '1', unit: 'tbsp' },
+      { name: 'tomato sauce', quantity: '100', unit: 'g' },
+      { name: 'mozzarella', quantity: '125', unit: 'g' },
+      { name: 'basil', quantity: '6', unit: 'leaf' },
+    ],
+    steps: [
+      'Mix the flour, water, yeast, salt, and olive oil into a smooth dough.',
+      'Cover the dough and let it rise for about an hour.',
+      'Stretch the dough into a round and spread the tomato sauce on top.',
+      'Add the mozzarella and bake in a very hot oven, then top with basil.',
+    ],
+  },
 ];
