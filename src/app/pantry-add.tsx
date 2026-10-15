@@ -10,34 +10,46 @@ import { capitalize } from "@/utils/text";
 
 /**
  * Multi-select modal for adding pantry items. Selections live in local state,
- * so they're only committed by Done; any other dismissal (Close, swipe down,
- * Android back) unmounts the screen and discards them.
+ * so they're only saved to Supabase by Done; any other dismissal (Close, swipe
+ * down, Android back) unmounts the screen and discards them. The modal only
+ * closes once the save succeeds; on failure it stays open with an error.
  */
 export default function PantryAddScreen() {
   const router = useRouter();
-  const { items, addItems } = usePantry();
+  const { has, saving, addItems } = usePantry();
   const [selected, setSelected] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const toggle = (name: string) =>
     setSelected((current) =>
       current.includes(name) ? current.filter((item) => item !== name) : [...current, name],
     );
 
-  const done = () => {
-    addItems(selected);
-    router.back();
+  const done = async () => {
+    if (saving) return;
+    setError(null);
+    const result = await addItems(selected);
+    if (result.ok) {
+      router.back();
+    } else {
+      setError(result.error);
+    }
   };
 
   return (
     <>
       <Stack.Screen
         options={{
-          headerLeft: () => <HeaderButton label="Close" onPress={() => router.back()} />,
+          // Don't let the modal close mid-save; the result decides whether it closes.
+          gestureEnabled: !saving,
+          headerLeft: () => (
+            <HeaderButton label="Close" disabled={saving} onPress={() => router.back()} />
+          ),
           headerRight: () => (
             <HeaderButton
-              label="Done"
+              label={saving ? "Saving…" : "Done"}
               emphasized
-              disabled={selected.length === 0}
+              disabled={selected.length === 0 || saving}
               onPress={done}
             />
           ),
@@ -47,14 +59,14 @@ export default function PantryAddScreen() {
         data={INGREDIENT_NAMES}
         keyExtractor={(name) => name}
         renderItem={({ item, index }) => {
-          const inPantry = items.includes(item);
+          const inPantry = has(item);
           const checked = inPantry || selected.includes(item);
 
           return (
             <Pressable
               accessibilityRole="checkbox"
               accessibilityState={{ checked, disabled: inPantry }}
-              disabled={inPantry}
+              disabled={inPantry || saving}
               onPress={() => toggle(item)}
               style={({ pressed }) => [
                 styles.row,
@@ -78,6 +90,13 @@ export default function PantryAddScreen() {
             </Pressable>
           );
         }}
+        ListHeaderComponent={
+          error ? (
+            <View accessibilityRole="alert" style={styles.errorBanner}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null
+        }
         style={styles.list}
         contentContainerStyle={styles.content}
       />
@@ -102,6 +121,16 @@ const styles = StyleSheet.create({
     gap: spacing.sm + spacing.xs,
     paddingVertical: spacing.sm + spacing.xs,
     paddingHorizontal: spacing.md,
+  },
+  errorBanner: {
+    paddingVertical: spacing.sm + spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  errorText: {
+    fontSize: fontSize.sm,
+    color: colors.accent,
   },
   divider: {
     borderTopWidth: StyleSheet.hairlineWidth,

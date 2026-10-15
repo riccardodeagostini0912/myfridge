@@ -1,5 +1,6 @@
 import { useRouter } from "expo-router";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { colors, fontSize, radius, spacing } from "@/constants/tokens";
 import { usePantry } from "@/context/pantry";
@@ -7,7 +8,43 @@ import { capitalize } from "@/utils/text";
 
 export default function PantryScreen() {
   const router = useRouter();
-  const { items, removeItem } = usePantry();
+  const { items, status, hasLoaded, error, saving, reload, removeItem } = usePantry();
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const remove = async (id: string) => {
+    if (saving) return;
+    setRemovingId(id);
+    setActionError(null);
+    const result = await removeItem(id);
+    setRemovingId(null);
+    if (!result.ok) setActionError(result.error);
+  };
+
+  if (!hasLoaded && status === "loading") {
+    return (
+      <View style={styles.empty}>
+        <ActivityIndicator color={colors.primary} />
+        <Text style={styles.emptyText}>Loading your pantry…</Text>
+      </View>
+    );
+  }
+
+  if (!hasLoaded && status === "error") {
+    return (
+      <View style={styles.empty}>
+        <Text style={styles.emptyTitle}>Couldn't load your pantry</Text>
+        <Text style={styles.emptyText}>{error}</Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={reload}
+          style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
+        >
+          <Text style={styles.primaryButtonText}>Try again</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   if (items.length === 0) {
     return (
@@ -30,21 +67,45 @@ export default function PantryScreen() {
   return (
     <FlatList
       data={items}
-      keyExtractor={(name) => name}
+      keyExtractor={(item) => item.id}
       renderItem={({ item, index }) => (
         <View style={[styles.row, index > 0 && styles.divider]}>
-          <Text style={styles.name}>{capitalize(item)}</Text>
+          <Text style={styles.name}>{capitalize(item.name)}</Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Remove ${item}`}
+            accessibilityLabel={`Remove ${item.name}`}
+            accessibilityState={{ disabled: saving, busy: removingId === item.id }}
+            disabled={saving}
             hitSlop={spacing.sm}
-            onPress={() => removeItem(item)}
-            style={({ pressed }) => pressed && styles.pressed}
+            onPress={() => remove(item.id)}
+            style={({ pressed }) => [pressed && styles.pressed, saving && styles.disabled]}
           >
-            <Text style={styles.remove}>Remove</Text>
+            <Text style={styles.remove}>{removingId === item.id ? "Removing…" : "Remove"}</Text>
           </Pressable>
         </View>
       )}
+      ListHeaderComponent={
+        // Failures keep the current list visible and explain what went wrong.
+        actionError ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${actionError} Tap to dismiss.`}
+            onPress={() => setActionError(null)}
+            style={({ pressed }) => [styles.errorBanner, pressed && styles.pressed]}
+          >
+            <Text style={styles.errorText}>{actionError}</Text>
+          </Pressable>
+        ) : status === "error" ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Couldn't refresh your pantry. Tap to try again."
+            onPress={reload}
+            style={({ pressed }) => [styles.errorBanner, pressed && styles.pressed]}
+          >
+            <Text style={styles.errorText}>Couldn't refresh your pantry. Tap to try again.</Text>
+          </Pressable>
+        ) : null
+      }
       style={styles.list}
       contentContainerStyle={styles.content}
     />
@@ -70,6 +131,16 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm + spacing.xs,
     paddingHorizontal: spacing.md,
   },
+  errorBanner: {
+    paddingVertical: spacing.sm + spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  errorText: {
+    fontSize: fontSize.sm,
+    color: colors.accent,
+  },
   divider: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
@@ -86,6 +157,9 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.6,
+  },
+  disabled: {
+    opacity: 0.4,
   },
   empty: {
     flex: 1,
