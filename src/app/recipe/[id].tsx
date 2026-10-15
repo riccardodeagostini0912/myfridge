@@ -1,28 +1,33 @@
 import { Image } from "expo-image";
 import { Stack, useLocalSearchParams } from "expo-router";
+import { SymbolView } from "expo-symbols";
 import type { ReactNode } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { DifficultyBadge } from "@/components/difficulty-badge";
 import { PlaceholderScreen } from "@/components/placeholder-screen";
 import { colors, fontSize, radius, spacing } from "@/constants/tokens";
+import { usePantry } from "@/context/pantry";
 import { RECIPES, type Ingredient } from "@/data/recipes";
+import { capitalize } from "@/utils/text";
 
 function formatAmount({ quantity, unit }: Ingredient) {
   return unit ? `${quantity} ${unit}` : quantity;
 }
 
-function capitalize(text: string) {
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
-
 export default function RecipeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const recipe = RECIPES.find((r) => r.id === id);
+  const { items: pantryItems } = usePantry();
 
   if (!recipe) {
     return <PlaceholderScreen title="Recipe not found" />;
   }
+
+  // Derived on every render so it always reflects the current pantry.
+  const ownedCount = recipe.ingredients.filter((ingredient) =>
+    pantryItems.includes(ingredient.name),
+  ).length;
 
   return (
     <>
@@ -49,16 +54,42 @@ export default function RecipeDetailScreen() {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Ingredients</Text>
-            {recipe.ingredients.map((ingredient, index) => (
-              <View
-                key={ingredient.name}
-                style={[styles.ingredientRow, index > 0 && styles.divider]}
-              >
-                <Text style={styles.ingredientName}>{capitalize(ingredient.name)}</Text>
-                <Text style={styles.ingredientAmount}>{formatAmount(ingredient)}</Text>
-              </View>
-            ))}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Ingredients</Text>
+              <Text style={styles.ingredientSummary}>
+                You have {ownedCount} of {recipe.ingredients.length} ingredients.
+              </Text>
+            </View>
+            <View style={styles.card}>
+              {recipe.ingredients.map((ingredient, index) => {
+                const inPantry = pantryItems.includes(ingredient.name);
+
+                return (
+                  <View
+                    key={ingredient.name}
+                    accessible
+                    accessibilityLabel={`${ingredient.name}, ${formatAmount(ingredient)}, ${
+                      inPantry ? "in pantry" : "missing"
+                    }`}
+                    style={[styles.ingredientRow, index > 0 && styles.divider]}
+                  >
+                    <SymbolView
+                      name={
+                        inPantry
+                          ? { ios: "checkmark.circle.fill", android: "check_circle", web: "check_circle" }
+                          : { ios: "circle", android: "radio_button_unchecked", web: "radio_button_unchecked" }
+                      }
+                      size={20}
+                      tintColor={inPantry ? colors.primary : colors.textMuted}
+                    />
+                    <Text style={[styles.ingredientName, !inPantry && styles.ingredientMissing]}>
+                      {capitalize(ingredient.name)}
+                    </Text>
+                    <Text style={styles.ingredientAmount}>{formatAmount(ingredient)}</Text>
+                  </View>
+                );
+              })}
+            </View>
           </View>
 
           <View style={styles.section}>
@@ -89,7 +120,7 @@ function StatCard({ label, children }: { label: string; children: ReactNode }) {
 
 const styles = StyleSheet.create({
   screen: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
   },
   content: {
     paddingBottom: spacing.xl,
@@ -124,7 +155,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: spacing.xs,
     padding: spacing.md,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
     borderRadius: radius.md,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
@@ -139,18 +170,32 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   section: {
-    gap: spacing.sm,
+    gap: spacing.sm + spacing.xs,
+  },
+  sectionHeader: {
+    gap: spacing.xs,
+  },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
   sectionTitle: {
     fontSize: fontSize.lg,
     fontWeight: "700",
     color: colors.text,
   },
+  ingredientSummary: {
+    fontSize: fontSize.sm,
+    color: colors.textMuted,
+  },
   ingredientRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    gap: spacing.md,
-    paddingVertical: spacing.sm,
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingVertical: spacing.sm + spacing.xs,
+    paddingHorizontal: spacing.md,
   },
   divider: {
     borderTopWidth: StyleSheet.hairlineWidth,
@@ -158,8 +203,11 @@ const styles = StyleSheet.create({
   },
   ingredientName: {
     flex: 1,
-    fontSize: fontSize.sm,
+    fontSize: fontSize.md,
     color: colors.text,
+  },
+  ingredientMissing: {
+    color: colors.textMuted,
   },
   ingredientAmount: {
     fontSize: fontSize.sm,
@@ -176,7 +224,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: radius.pill,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
   },
@@ -187,8 +235,8 @@ const styles = StyleSheet.create({
   },
   stepText: {
     flex: 1,
-    fontSize: fontSize.sm,
-    lineHeight: 20,
+    fontSize: fontSize.md,
+    lineHeight: 22,
     color: colors.text,
   },
 });
