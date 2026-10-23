@@ -2,8 +2,10 @@ import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
+import { Banner, type BannerMessage } from "@/components/banner";
+import { Checkbox } from "@/components/checkbox";
 import { HeaderButton } from "@/components/header-button";
-import { colors, fontSize, radius, spacing } from "@/constants/tokens";
+import { colors, contentMaxWidth, fontSize, radius, spacing, touchTarget } from "@/constants/tokens";
 import { usePantry } from "@/context/pantry";
 import { INGREDIENT_NAMES } from "@/data/ingredients";
 import { capitalize } from "@/utils/text";
@@ -18,7 +20,7 @@ export default function PantryAddScreen() {
   const router = useRouter();
   const { has, saving, addItems } = usePantry();
   const [selected, setSelected] = useState<string[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<BannerMessage | null>(null);
 
   const toggle = (name: string) =>
     setSelected((current) =>
@@ -32,7 +34,7 @@ export default function PantryAddScreen() {
     if (result.ok) {
       router.back();
     } else {
-      setError(result.error);
+      setError({ tone: "error", text: result.error });
     }
   };
 
@@ -47,7 +49,8 @@ export default function PantryAddScreen() {
           ),
           headerRight: () => (
             <HeaderButton
-              label={saving ? "Saving…" : "Done"}
+              // The count tells users what Done will save before they tap it.
+              label={saving ? "Saving…" : selected.length > 0 ? `Done (${selected.length})` : "Done"}
               emphasized
               disabled={selected.length === 0 || saving}
               onPress={done}
@@ -58,31 +61,25 @@ export default function PantryAddScreen() {
       <FlatList
         data={INGREDIENT_NAMES}
         keyExtractor={(name) => name}
-        renderItem={({ item, index }) => {
+        renderItem={({ item }) => {
           const inPantry = has(item);
           const checked = inPantry || selected.includes(item);
 
           return (
             <Pressable
               accessibilityRole="checkbox"
-              accessibilityState={{ checked, disabled: inPantry }}
+              accessibilityLabel={capitalize(item)}
+              accessibilityHint={inPantry ? "Already in your pantry" : undefined}
+              accessibilityState={{ checked, disabled: inPantry || saving }}
               disabled={inPantry || saving}
               onPress={() => toggle(item)}
               style={({ pressed }) => [
                 styles.row,
-                index > 0 && styles.divider,
+                checked && !inPantry && styles.rowSelected,
                 pressed && styles.pressed,
               ]}
             >
-              <View
-                style={[
-                  styles.checkbox,
-                  checked && styles.checkboxChecked,
-                  inPantry && styles.checkboxDisabled,
-                ]}
-              >
-                {checked ? <Text style={styles.checkmark}>✓</Text> : null}
-              </View>
+              <Checkbox checked={checked} disabled={inPantry} />
               <Text style={[styles.name, inPantry && styles.nameDisabled]}>
                 {capitalize(item)}
               </Text>
@@ -91,11 +88,16 @@ export default function PantryAddScreen() {
           );
         }}
         ListHeaderComponent={
-          error ? (
-            <View accessibilityRole="alert" style={styles.errorBanner}>
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          ) : null
+          <View style={styles.header}>
+            <Banner
+              message={error}
+              onDismiss={() => setError(null)}
+            />
+            <Text style={styles.intro}>
+              Select what you have at home, then tap Done. Items already in your pantry are
+              marked.
+            </Text>
+          </View>
         }
         style={styles.list}
         contentContainerStyle={styles.content}
@@ -109,60 +111,43 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    margin: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+    width: "100%",
+    maxWidth: contentMaxWidth,
+    alignSelf: "center",
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  header: {
+    gap: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  intro: {
+    fontSize: fontSize.sm,
+    lineHeight: 20,
+    color: colors.textMuted,
   },
   row: {
+    minHeight: touchTarget + 12,
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm + spacing.xs,
-    paddingVertical: spacing.sm + spacing.xs,
+    gap: spacing.md,
     paddingHorizontal: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  errorBanner: {
-    paddingVertical: spacing.sm + spacing.xs,
-    paddingHorizontal: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  errorText: {
-    fontSize: fontSize.sm,
-    color: colors.accent,
-  },
-  divider: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
+  rowSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
   },
   pressed: {
     opacity: 0.6,
   },
-  checkbox: {
-    width: 22,
-    height: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.sm,
-    borderWidth: 1.5,
-    borderColor: colors.textMuted,
-  },
-  checkboxChecked: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary,
-  },
-  checkboxDisabled: {
-    opacity: 0.4,
-  },
-  checkmark: {
-    fontSize: fontSize.sm,
-    fontWeight: "700",
-    color: colors.surface,
-  },
   name: {
     flex: 1,
     fontSize: fontSize.md,
+    fontWeight: "500",
     color: colors.text,
   },
   nameDisabled: {
@@ -170,6 +155,7 @@ const styles = StyleSheet.create({
   },
   hint: {
     fontSize: fontSize.xs,
+    fontWeight: "600",
     color: colors.textMuted,
   },
 });

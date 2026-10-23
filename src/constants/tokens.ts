@@ -1,17 +1,25 @@
 export const colors = {
-  primary: "#2E7D5B",
-  accent: "#8B5A2B",
-  background: "#FBF6EE",
+  /** Deep forest green: navigation, primary actions, progress, selected states. */
+  primary: "#246B53",
+  /** Soft sage: selected/positive backgrounds and progress tracks. */
+  primarySoft: "#E3EFE7",
+  /** Warm cream: screen background. */
+  background: "#FAF8F3",
   surface: "#FFFFFF",
-  text: "#1B1F1D",
-  textMuted: "#6B6560",
-  border: "#EFE6DA",
+  /** Dark charcoal: body text and headings. */
+  text: "#25302B",
+  /** Secondary text; keeps at least 4.5:1 contrast on cream and white. */
+  textMuted: "#5D6862",
+  border: "#E2E6DF",
+  /** Destructive actions and error messages. */
+  danger: "#A8362A",
+  dangerSoft: "#FBEAE6",
 };
 
 export const difficultyColors = {
-  Easy: { background: "#E3F1E4", text: "#2F6B3A" },
-  Medium: { background: "#FBEFD5", text: "#8A5A00" },
-  Hard: { background: "#F9E0DC", text: "#A23B2E" },
+  Easy: { background: colors.primarySoft, text: colors.primary },
+  Medium: { background: "#F7EDD8", text: "#7A5300" },
+  Hard: { background: colors.dangerSoft, text: colors.danger },
 };
 
 export const spacing = {
@@ -24,14 +32,21 @@ export const spacing = {
 
 export const fontSize = {
   xs: 12,
-  sm: 13,
+  sm: 14,
   md: 16,
   lg: 20,
-  xl: 28,
+  xl: 26,
 };
 
 export const radius = {
-  sm: 6,
-  md: 12,
+  sm: 8,
+  md: 14,
+  lg: 20,
   pill: 999,
 };
+
+/** Minimum size for anything tappable (Apple HIG / WCAG target size). */
+export const touchTarget = 44;
+
+/** Content stops growing past this width so wide browser windows stay readable. */
+export const contentMaxWidth = 720;

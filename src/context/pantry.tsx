@@ -34,6 +34,11 @@ type PantryContextValue = {
   has: (name: string) => boolean;
   addItems: (names: string[]) => Promise<PantryActionResult>;
   removeItem: (id: string) => Promise<PantryActionResult>;
+  /**
+   * Saves ingredients with an upsert that skips names already stored, so it's
+   * safe to repeat (e.g. retrying a grocery transfer).
+   */
+  saveItems: (names: string[]) => Promise<PantryActionResult>;
 };
 
 type PantryRow = { id: string | number; ingredient_name: string | null };
@@ -184,6 +189,47 @@ export function PantryProvider({ children }: { children: ReactNode }) {
     [runExclusive, commit],
   );
 
+  const saveItems = useCallback(
+    (names: string[]) =>
+      runExclusive(async () => {
+        // Skip names already in the pantry under a different case; the upsert
+        // handles exact matches, including ones added since the last load.
+        const toSave = [...new Set(names.map((name) => name.trim()).filter(Boolean))].filter(
+          (name) => !items.some((item) => matchKey(item.name) === matchKey(name)),
+        );
+
+        if (toSave.length > 0) {
+          const { data, error: upsertError } = await supabase
+            .from(TABLE)
+            .upsert(
+              toSave.map((name) => ({ ingredient_name: name })),
+              { onConflict: "ingredient_name", ignoreDuplicates: true },
+            )
+            .select(COLUMNS);
+          if (upsertError || !data) {
+            console.warn(
+              "Failed to save pantry items:",
+              upsertError?.message ?? "rows not returned",
+            );
+            return { ok: false, error: "Couldn't save to your pantry. Please try again." };
+          }
+
+          const inserted = toItems(data);
+          commit((current) =>
+            [
+              ...current.filter((item) => !inserted.some((row) => row.id === item.id)),
+              ...inserted,
+            ].sort((a, b) => a.name.localeCompare(b.name)),
+          );
+        }
+
+        // Pick up anything changed elsewhere; a failed refresh keeps the list above.
+        reload();
+        return { ok: true };
+      }),
+    [items, runExclusive, commit, reload],
+  );
+
   const value = useMemo<PantryContextValue>(() => {
     const keys = new Set(items.map((item) => matchKey(item.name)));
     return {
@@ -198,8 +244,9 @@ export function PantryProvider({ children }: { children: ReactNode }) {
       has: (name) => keys.has(matchKey(name)),
       addItems,
       removeItem,
+      saveItems,
     };
-  }, [items, status, hasLoaded, error, saving, reload, addItems, removeItem]);
+  }, [items, status, hasLoaded, error, saving, reload, addItems, removeItem, saveItems]);
 
   return <PantryContext.Provider value={value}>{children}</PantryContext.Provider>;
 }
