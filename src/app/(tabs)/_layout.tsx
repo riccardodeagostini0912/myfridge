@@ -1,16 +1,21 @@
-import { router } from "expo-router";
 import { Tabs } from "expo-router/js-tabs";
 
-import { HeaderButton } from "@/components/header-button";
 import { TabIcon } from "@/components/tab-icon";
-import { colors } from "@/constants/tokens";
+import { colors, fontSize } from "@/constants/tokens";
 
 export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
+        headerStyle: { backgroundColor: colors.background },
+        headerShadowVisible: false,
+        headerTitleAlign: "left",
+        headerTitleStyle: { fontSize: fontSize.xl, fontWeight: "700", color: colors.text },
+        sceneStyle: { backgroundColor: colors.background },
+        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
+        tabBarLabelStyle: { fontSize: fontSize.xs, fontWeight: "600" },
       }}
     >
       <Tabs.Screen
@@ -36,9 +41,6 @@ export default function TabsLayout() {
               name={{ ios: "refrigerator", android: "kitchen", web: "kitchen" }}
               activeName={{ ios: "refrigerator.fill", android: "kitchen", web: "kitchen" }}
             />
-          ),
-          headerRight: () => (
-            <HeaderButton label="Add" onPress={() => router.push("/pantry-add")} />
           ),
         }}
       />
